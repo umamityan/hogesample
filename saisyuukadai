@@ -1,0 +1,225 @@
+import numpy as np
+import matplotlib.pyplot as plt
+%matplotlib inline
+
+fig = plt.figure(figsize=((5,5)))
+ax = plt.gca()
+ 
+plt.plot([0,1], [2,2], color='red', linewidth=2)  
+plt.plot([1,1], [2,3], color='red', linewidth=2)  
+plt.plot([2,2], [2,3], color='red', linewidth=2)  
+plt.plot([3,3], [3,4], color='red', linewidth=2)  
+plt.plot([3,3], [0,1], color='red', linewidth=2)  
+plt.plot([1,3], [1,1], color='red', linewidth=2)  
+plt.plot([2,4], [2,2], color='red', linewidth=2)  
+
+
+plt.text(0.5, 3.5, 'S0', size=14, ha='center')
+plt.text(1.5, 3.5, 'S1', size=14, ha='center')
+plt.text(2.5, 3.5, 'S2', size=14, ha='center')
+plt.text(3.5, 3.5, 'S3', size=14, ha='center')
+plt.text(0.5, 2.5, 'S4', size=14, ha='center')
+plt.text(1.5, 2.5, 'S5', size=14, ha='center')
+plt.text(2.5, 2.5, 'S6', size=14, ha='center')
+plt.text(3.5, 2.5, 'S7', size=14, ha='center')
+plt.text(0.5, 1.5, 'S8', size=14, ha='center')
+plt.text(1.5, 1.5, 'S9', size=14, ha='center')
+plt.text(2.5, 1.5, 'S10', size=14, ha='center')
+plt.text(3.5, 1.5, 'S11', size=14, ha='center')
+plt.text(0.5, 0.5, 'S12', size=14, ha='center')
+plt.text(1.5, 0.5, 'S13', size=14, ha='center')
+plt.text(2.5, 0.5, 'S14', size=14, ha='center')
+plt.text(3.5, 0.5, 'S15', size=14, ha='center')
+plt.text(0.5, 3.3, 'START', ha='center')
+plt.text(3.5, 0.3, 'GOAL', ha='center')
+
+# 描画範囲の設定と目盛りを消す設定
+ax.set_xlim(0, 4)
+ax.set_ylim(0, 4)
+plt.tick_params(axis='both', which='both', bottom='off', top='off',
+               labelbottom='off', right='off', left='off', labelleft='off')
+
+# 現在地S0に緑丸を描画する
+line, = ax.plot([0.5], [3.5], marker="o", color='g', markersize=60)
+# 初期の方策を決定するパラメータtheta_0を設定
+ 
+# 行は状態0～7、列は移動方向で↑、→、↓、←を表す
+theta_0 = np.array([[np.nan, 1, 1, np.nan],     #S0
+                   [np.nan, 1, 1, 1],      #S1
+                   [np.nan, np.nan, 1, 1],      #S2
+                   [np.nan, np.nan, 1, np.nan],           #S3
+                   [1, np.nan, np.nan, np.nan],      #S4
+                   [1, np.nan, 1, np.nan], #S5
+                   [1, 1, np.nan, np.nan], #S6
+                   [1, np.nan, np.nan, 1], #S7 
+                   [np.nan,1, 1, np.nan], #S8
+                   [1, 1, np.nan, 1], #S9
+                   [np.nan, 1, np.nan, 1],      #S10
+                   [np.nan, np.nan, 1, 1],           #S11
+                   [1, 1, np.nan, np.nan],      #S12
+                   [np.nan, 1, np.nan, 1], #S13
+                   [np.nan, np.nan, np.nan, 1], #S14
+                   ])
+
+[a, b] = theta_0.shape
+Q = np.random.rand(a, b) * theta_0 * 0.1 # SARSAより小さく
+print(Q)
+
+def theta2pi(theta):
+    ''' 単純に割合を計算する'''
+
+    [m, n] = theta.shape
+    pi = np.zeros((m, n))
+    for i in range(0, m):
+        pi[i,:] = theta[i, :] / np.nansum(theta[i, :])
+    
+    pi = np.nan_to_num(pi)
+
+    return pi
+
+# ランダム行動方策 pi_0 を求める
+pi_0 = theta2pi(theta_0)
+print(pi_0)
+
+def get_action(s, Q, epsilon, pi_0):
+    direction = ["up", "right", "down", "left"]
+
+    # 行動を決める
+    if np.random.rand() < epsilon:
+        # εの確率でランダムに動く
+        next_direction = np.random.choice(direction, p=pi_0[s, :])
+    else:
+        # Q の最大値の行動を採用する
+        next_direction = direction[np.nanargmax(Q[s, :])]
+
+    # 行動をindexに
+    if next_direction == "up":
+        action = 0
+    elif next_direction == "right":
+        action = 1
+    elif next_direction == "down":
+        action = 2
+    elif next_direction == "left":
+        action = 3
+    return action
+
+
+def get_s_next(s, a, Q, epsilon, pi_0):
+    direction = ["up", "right", "down", "left"]
+    next_direction = direction[a]
+
+    if next_direction == "up":
+        s_next = s - 4
+    elif next_direction == "right":
+        s_next = s + 1
+    elif next_direction == "down":
+        s_next = s + 4
+    elif next_direction == "left":
+        s_next = s - 1
+
+    return s_next
+
+
+def Q_learning(s, a, r, s_next, Q, eta, gamma):
+    if s_next == 15:
+        Q[s, a] = Q[s, a] + eta * (r - Q[s, a])
+    else:
+        Q[s, a] = Q[s, a] + eta * (r + gamma * np.nanmax(Q[s_next, :]) - Q[s, a])
+
+    return Q
+
+def goal_maze(Q, epsilon, eta, gamma, pi):
+    s = 0    # スタート地点
+    a = a_next = get_action(s, Q, epsilon, pi) # 初めの行動
+    s_a_history = [[0, np.nan]]
+
+    while(1):
+        a = a_next
+
+        s_a_history[-1][1] = a
+        s_next = get_s_next(s, a, Q, epsilon, pi)
+
+        s_a_history.append([s_next, np.nan])
+        if s_next == 15:
+            r = 1 # ゴールに到着したので報酬を与える
+            a_next = np.nan
+        else:
+            r = 0
+        
+        # 価値関数を更新
+        Q = Q_learning(s, a, r, s_next, Q, eta, gamma)
+ 
+        # 終了判定
+        if s_next == 15:
+            break
+        else:
+            s = s_next
+            a_next = get_action(s_next, Q, epsilon, pi)
+    return [s_a_history, Q]
+
+eta = 0.1 # 学習率
+gamma = 0.9 # 割引率
+epsilon = 0.5 # e-greedy 手法の初期値
+v = np.nanmax(Q, axis=1) # 状態ごとに価値の最大値を求める
+is_continue = True
+episode = 1
+
+V = []
+V.append(np.nanmax(Q, axis=1))
+
+while is_continue:
+    print("エピソード:" + str(episode))
+
+    # e-greedyの値を少しずつ小さくする
+    epsilon = epsilon / 2
+    # Q学習で迷路を解き、移動した履歴と更新したQを求める
+    [s_a_history, Q] = goal_maze(Q, epsilon, eta, gamma, pi_0)
+
+    # 状態価値の変化
+    new_v = np.nanmax(Q, axis=1)
+    print(np.sum(np.abs(new_v - v)))
+    v = new_v
+    V.append(v)
+
+    print("迷路を解くのにかかったステップ数は" + str(len(s_a_history) - 1) + "です")
+
+    # 100エピソード繰り返す
+    episode = episode + 1
+    if episode > 100:
+        break
+        v
+
+from matplotlib import animation
+from IPython.display import HTML
+import matplotlib.cm as cm # color map
+
+def init():
+    '''背景画像の初期化'''
+    line.set_data([], [])
+    return (line,)
+
+def animate(i):
+ '''フレームごとの描画内容'''
+ '''各マスに状態価値の大きさに基づく色付きの四角を描画'''
+ line, = ax.plot([0.5], [3.5], marker="s", color=cm.jet(V[i][0]), markersize=60) # S0
+ line, = ax.plot([1.5], [3.5], marker="s", color=cm.jet(V[i][1]), markersize=60) # S1
+ line, = ax.plot([2.5], [3.5], marker="s", color=cm.jet(V[i][2]), markersize=60) # S2
+ line, = ax.plot([3.5], [3.5], marker="s", color=cm.jet(V[i][3]), markersize=60) # S3
+ line, = ax.plot([0.5], [2.5], marker="s", color=cm.jet(V[i][4]), markersize=60) # S4
+ line, = ax.plot([1.5], [2.5], marker="s", color=cm.jet(V[i][5]), markersize=60) # S5
+ line, = ax.plot([2.5], [2.5], marker="s", color=cm.jet(V[i][6]), markersize=60) # S6
+ line, = ax.plot([3.5], [2.5], marker="s", color=cm.jet(V[i][7]), markersize=60) # S7
+ line, = ax.plot([0.5], [1.5], marker="s", color=cm.jet(V[i][8]), markersize=60) # S8
+ line, = ax.plot([1.5], [1.5], marker="s", color=cm.jet(V[i][9]), markersize=60) # S9
+ line, = ax.plot([2.5], [1.5], marker="s", color=cm.jet(V[i][10]), markersize=60) # S10
+ line, = ax.plot([3.5], [1.5], marker="s", color=cm.jet(V[i][11]), markersize=60) # S11
+ line, = ax.plot([0.5], [0.5], marker="s", color=cm.jet(V[i][12]), markersize=60) # S12
+ line, = ax.plot([1.5], [0.5], marker="s", color=cm.jet(V[i][13]), markersize=60) # S13
+ line, = ax.plot([2.5], [0.5], marker="s", color=cm.jet(V[i][14]), markersize=60) # S14
+ line, = ax.plot([3.5], [0.5], marker="s", color=cm.jet(1.0), markersize=60) # S15
+ return (line,)
+ 
+# 初期化関数とフレームごとの描画関数を用いて動画を作成する
+anim = animation.FuncAnimation(fig, animate, init_func=init, frames=len(V), interval=200, repeat
+=False)
+HTML(anim.to_jshtml())
